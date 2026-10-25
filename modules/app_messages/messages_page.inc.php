@@ -144,7 +144,8 @@ if (gr('mode') == 'cam_guest') {
 // 1) Ключ (messages_auth.inc.php): ?token=… (ссылка из карточки терминала, API) или cookie tmmsg_key —
 //    страница открывается как терминал ключа, с любого адреса; адрес, сессия, ?terminal= и from= не смотрятся.
 // 2) Вход в панель управления в этом браузере (AUTHORIZED в общей сессии ядра, modules/panel.class.php) —
-//    любой терминал (выбор под стрелкой у имени): по умолчанию узнанный, как ниже, иначе MAIN.
+//    от пользователя, без терминала; терминал — только если выбран под стрелкой у имени (from). Пользователь
+//    не узнан (панель без пользователей) — как раньше: узнанный терминал, иначе MAIN.
 // 3) Как прежде: выбранный на странице (from), из сессии (ядро пишет в неё ?terminal=) или по адресу
 //    устройства; не узнан — выбирается на странице. Терминал с галочкой «Только по ключу» так не открывается
 //    и в выборе его нет — это закрывает подмену по адресу (обратный прокси), сессии и ?terminal=.
@@ -229,10 +230,14 @@ if (!$by_key && $lock == '') {
         $found = !empty($list[0]['ID']) ? $list[0] : array();
     }
     if (is_object($session) && !empty($session->data['AUTHORIZED'])) {
-        // панель управления: любой терминал, по умолчанию узнанный, иначе MAIN
+        // панель управления: от пользователя; терминал — только выбранный под стрелкой (from)
         $as_admin = true;
-        $me = $found;
-        if (empty($me['ID'])) {
+        $me = (gr('from') != '') ? messagesTerminal(gr('from')) : array();
+        if (empty($me['ID']) && empty($me_user['ID'])) {
+            // пользователя нет — как раньше: узнанный терминал, иначе MAIN
+            $me = $found;
+        }
+        if (empty($me['ID']) && empty($me_user['ID'])) {
             $list = getTerminalsByName('MAIN', 1);
             $me = !empty($list[0]['ID']) ? $list[0] : SQLSelectOne("SELECT * FROM terminals ORDER BY ID LIMIT 1");
         }
@@ -471,6 +476,8 @@ if (!isset($all_users[$user_id])) {
     $user_id = 0;
 }
 $me_user_key = $user_id ? 'user:' . $user_id : '';
+// из панели управления от пользователя (без терминала): пометка к сообщениям — «Admin (из панели управления)»
+$from_note = ($as_admin && $me_name == '' && $user_id) ? messagesLang('MESSAGES_FROM_PANEL') : '';
 // строки, адресованные мне (терминалу или пользователю) и отправленные мной; нет ни того, ни другого — ничьи
 $to_me = array();
 $from_me = array();
@@ -833,7 +840,7 @@ $send_to_shouts = function ($chat, $text, $image = '') use ($user_id, $me, $me_n
 
 // терминалам чата (или списку $to): текст и вложения ($media — image, sound, file, file_name, video),
 // $forwarded — от кого пересланное сообщение. Возвращает число получателей
-$send_to_terminals = function ($chat, $to, $text, $media, $voice, $forwarded = '', $after_record = null) use ($me_name, $user_id) {
+$send_to_terminals = function ($chat, $to, $text, $media, $voice, $forwarded = '', $after_record = null) use ($me_name, $user_id, $from_note) {
     $media = array_merge(array('image' => '', 'sound' => '', 'file' => '', 'file_name' => '', 'video' => '',
         'sound_duration' => 0, 'video_duration' => 0), (array)$media);
     if (($me_name == '' && !$user_id) || !count($to) || ($text == '' && $media['image'] == '' && $media['sound'] == '' && $media['file'] == '' && $media['video'] == '')) {
@@ -855,6 +862,9 @@ $send_to_terminals = function ($chat, $to, $text, $media, $voice, $forwarded = '
     // вошедший на сайт пишет от своего имени (на устройстве — его имя в заголовке)
     if ($user_id) {
         $options['from_user'] = $user_id;
+    }
+    if ($from_note != '') {
+        $options['from_note'] = $from_note;
     }
     if ($after_record) {
         $options['after_record'] = $after_record;
@@ -928,6 +938,9 @@ if (gr('mode') == 'cam_show' || gr('mode') == 'cam_photo') {
     $options = array('from' => $me_name, 'voice' => false);
     if ($user_id) {
         $options['from_user'] = $user_id;
+    }
+    if ($from_note != '') {
+        $options['from_note'] = $from_note;
     }
     if ($chat['type'] != 'term' && $chat['type'] != 'user') {
         $options['chat'] = $chat['key'];
@@ -1264,6 +1277,10 @@ $build_messages = function ($rows, $limit) use ($me_id, $user_id, $id_names, $al
             $other = '';
             $other_title = ($row[$side . '_NAME'] != '') ? $row[$side . '_NAME'] : $computer_name;
             $personal = 'system';
+        }
+        // пометка отправителя («из панели управления»)
+        if ($incoming && !empty($row['FROM_NOTE'])) {
+            $other_title .= ' (' . $row['FROM_NOTE'] . ')';
         }
         $chat_key = (isset($row['CHAT']) && $row['CHAT'] != '') ? $row['CHAT'] : $personal;
         $send_id = (isset($row['SEND_ID']) && $row['SEND_ID'] != '') ? $row['SEND_ID'] : 'id' . $row['ID'];

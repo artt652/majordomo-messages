@@ -6,7 +6,8 @@
 $dictionary = array(
 	'MESSAGES_ACTIVITY'                  => 'activity',
 	'MESSAGES_ADMIN_AS'                  => 'As',
-	'MESSAGES_ADMIN_AS_HINT'             => 'Signed in to the control panel: you can view and write as any terminal',
+	'MESSAGES_ADMIN_AS_HINT'             => 'Opened from the control panel: you write as the user; you can also view and write as any terminal',
+	'MESSAGES_ADMIN_AS_USER'             => 'No terminal — as user',
 	'MESSAGES_ALL'                       => 'All terminals',
 	'MESSAGES_APP_PAGE'                  => 'Page for terminal devices',
 	'MESSAGES_ATTACH'                    => 'Attach',
@@ -99,6 +100,7 @@ $dictionary = array(
 	'MESSAGES_FORWARD_NOT_FOUND'         => 'The message or chat is no longer available',
 	'MESSAGES_FORWARD_TEXT_ONLY'         => 'Only text and photos can be sent here',
 	'MESSAGES_FROM'                      => 'From',
+	'MESSAGES_FROM_PANEL'                => 'from the control panel',
 	'MESSAGES_FULLSCREEN'                => 'Full screen',
 	'MESSAGES_GO2RTC'                    => 'Cameras (go2rtc)',
 	'MESSAGES_GO2RTC_API_LOGIN'          => 'go2rtc API login',

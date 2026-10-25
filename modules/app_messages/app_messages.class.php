@@ -341,6 +341,7 @@ class app_messages extends module
  messages_history: TO_USER int(10) NOT NULL DEFAULT '0'
  messages_history: HIDE_FROM int(3) NOT NULL DEFAULT '0'
  messages_history: HIDE_TO int(3) NOT NULL DEFAULT '0'
+ messages_history: FROM_NOTE varchar(64) NOT NULL DEFAULT ''
  messages_history: INDEX (TO_NAME)
  messages_history: INDEX (TO_ID)
  messages_history: INDEX (FROM_ID)

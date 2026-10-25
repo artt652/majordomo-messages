@@ -380,10 +380,11 @@
 						[#endif ME_USER_KEY#]
 					</div>
 					[#if AS_ADMIN="1"#]
-					<!-- вход из панели управления (без ключа): от имени какого терминала — список под стрелкой -->
+					<!-- вход из панели управления: от пользователя или от имени выбранного терминала — список под стрелкой -->
 					<label class="tg-as" title="<#LANG_MESSAGES_ADMIN_AS_HINT#>">
 						<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
 						<select id="tm_from" aria-label="<#LANG_MESSAGES_ADMIN_AS#>">
+							[#if ME_USER_KEY!=""#]<option value=""><#LANG_MESSAGES_ADMIN_AS_USER#></option>[#endif ME_USER_KEY#]
 							[#begin ALL_TERMINALS#]<option value="[#NAME#]"[#if NAME="<#ME_NAME#>"#] selected[#endif#]>[#TITLE#]</option>[#end ALL_TERMINALS#]
 						</select>
 					</label>
@@ -397,6 +398,16 @@
 						<div class="tg-avatar" id="tm_me_avatar"></div>
 						<div class="tg-title">[#USER_TITLE#]</div>
 					</div>
+					[#if AS_ADMIN="1"#]
+					<!-- вход из панели управления: от пользователя; терминал — выбрать под стрелкой -->
+					<label class="tg-as" title="<#LANG_MESSAGES_ADMIN_AS_HINT#>">
+						<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+						<select id="tm_from" aria-label="<#LANG_MESSAGES_ADMIN_AS#>">
+							<option value="" selected><#LANG_MESSAGES_ADMIN_AS_USER#></option>
+							[#begin ALL_TERMINALS#]<option value="[#NAME#]">[#TITLE#]</option>[#end ALL_TERMINALS#]
+						</select>
+					</label>
+					[#endif AS_ADMIN#]
 				</div>
 				[#else USER_ONLY#]
 				<div class="tg-title" id="tm_me_title"><#LANG_MESSAGES_TITLE#></div>
@@ -2948,10 +2959,11 @@
 		};
 	}
 
-	// выбран другой терминал (панель управления или неузнанное устройство): страница заново от его имени
+	// выбран другой терминал или «как пользователь» (панель управления) или терминал неузнанного устройства: страница заново
 	document.getElementById('tm_from').addEventListener('change', function () {
 		var q = new URLSearchParams(location.search);
-		q.set('from', tmMe());
+		// пусто — от пользователя, без терминала (вход из панели управления)
+		if (tmMe()) q.set('from', tmMe()); else q.delete('from');
 		location.search = q.toString();
 	});
 

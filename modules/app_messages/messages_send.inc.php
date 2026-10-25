@@ -6,6 +6,7 @@
  *   messagesSend('Кухня', 'Ужин готов', array(
  *       'from'  => 'Гостиная',                  // от кого: терминал (имя или название) или любой текст
  *       'from_user' => 1,                       // от кого: пользователь MajorDoMo (ID) — вместо from
+ *       'from_note' => 'из панели управления',  // пометка к отправителю: на устройстве и в переписке — «Admin (…)»
  *       'image' => 'cms/cached/snapshot.jpg',   // картинка: путь в веб-корне MajorDoMo или http-ссылка
  *       'sound' => 'cms/sounds/dingdong.mp3',   // звук перед сообщением: путь в веб-корне или http-ссылка
  *       'file'  => 'cms/cached/terminals/x.pdf', // файл для страницы «Сообщения» (скачать); на устройство — «Файл: имя»
@@ -88,6 +89,8 @@ function messagesSend($to, $message, $options = array())
             $from = array();
         }
     }
+    // пометка к отправителю (страница из панели управления — «из панели управления»)
+    $from_note = isset($options['from_note']) ? mb_substr(trim((string)$options['from_note']), 0, 64, 'UTF-8') : '';
     $chat = isset($options['chat']) ? preg_replace('/[^a-z0-9:_]/i', '', (string)$options['chat']) : '';
     // копия в общий чат MajorDoMo (shouts) — только по просьбе сценария (shout => true), одна запись на отправку,
     // с именем отправителя в тексте (чат показывает автором имя компьютера). Сообщения «Все терминалы» туда
@@ -104,7 +107,7 @@ function messagesSend($to, $message, $options = array())
             }
         }
         if ($sender != '') {
-            $text = $sender . ': ' . $text;
+            $text = $sender . ($from_note != '' ? ' (' . $from_note . ')' : '') . ': ' . $text;
         }
         $shout = array(
             // таблица shouts в utf8 (3 байта): эмодзи и другие 4-байтовые символы она не принимает
@@ -121,9 +124,10 @@ function messagesSend($to, $message, $options = array())
         SQLInsert('shouts', $shout);
     }
     $send_id = md5(uniqid('', true) . mt_rand());
-    $sender_title = $sender;
+    // заголовок окна на устройстве: отправитель с пометкой и чат
+    $sender_title = ($sender != '' && $from_note != '') ? $sender . ' (' . $from_note . ')' : $sender;
     if ($sender != '' && !empty($options['chat_title'])) {
-        $sender_title = $sender . ' · ' . trim((string)$options['chat_title']);
+        $sender_title .= ' · ' . trim((string)$options['chat_title']);
     }
     $sent = 0;
     $recipients = array();
@@ -144,7 +148,7 @@ function messagesSend($to, $message, $options = array())
                 'MESSAGE' => json_encode($message), 'IMAGE' => $image, 'SOUND' => $sound, 'FILE' => $file, 'VIDEO' => $video,
                 'FILE_NAME' => $file_name,
                 'FORWARDED' => isset($options['forwarded']) ? mb_substr(trim((string)$options['forwarded']), 0, 255, 'UTF-8') : '',
-                'ADDED' => time(), 'CHAT' => $chat, 'SEND_ID' => $send_id, 'STREAM' => $stream, 'LINK' => $link,
+                'ADDED' => time(), 'CHAT' => $chat, 'SEND_ID' => $send_id, 'STREAM' => $stream, 'LINK' => $link, 'FROM_NOTE' => $from_note,
             );
             SQLInsert('messages_history', $rec);
             $recipients[] = 'user:' . (int)$user['ID'];
@@ -176,6 +180,7 @@ function messagesSend($to, $message, $options = array())
             'SEND_ID' => $send_id,
             'STREAM' => $stream,
             'LINK' => $link,
+            'FROM_NOTE' => $from_note,
         );
         $rec['ID'] = $history ? SQLInsert('messages_history', $rec) : 0;
         $message_id = (int)$rec['ID'];

@@ -6,7 +6,8 @@
 $dictionary = array(
 	'MESSAGES_ACTIVITY'                  => 'активность',
 	'MESSAGES_ADMIN_AS'                  => 'От имени',
-	'MESSAGES_ADMIN_AS_HINT'             => 'Вход из панели управления: можно смотреть и писать от имени любого терминала',
+	'MESSAGES_ADMIN_AS_HINT'             => 'Вход из панели управления: вы пишете как пользователь; можно смотреть и писать от имени любого терминала',
+	'MESSAGES_ADMIN_AS_USER'             => 'Без терминала — как пользователь',
 	'MESSAGES_ALL'                       => 'Все терминалы',
 	'MESSAGES_APP_PAGE'                  => 'Страница для устройств-терминалов',
 	'MESSAGES_ATTACH'                    => 'Прикрепить',
@@ -99,6 +100,7 @@ $dictionary = array(
 	'MESSAGES_FORWARD_NOT_FOUND'         => 'Сообщение или чат больше недоступны',
 	'MESSAGES_FORWARD_TEXT_ONLY'         => 'Сюда можно отправить только текст и фото',
 	'MESSAGES_FROM'                      => 'От кого',
+	'MESSAGES_FROM_PANEL'                => 'из панели управления',
 	'MESSAGES_FULLSCREEN'                => 'На весь экран',
 	'MESSAGES_GO2RTC'                    => 'Камеры (go2rtc)',
 	'MESSAGES_GO2RTC_API_LOGIN'          => 'Логин API go2rtc',
