@@ -3,18 +3,17 @@
  * «Сообщения» — приложение MajorDoMo: мессенджер терминалов и пользователей.
  *
  * Страница: /popup/app_messages.html (и /module/app_messages.html, /apps/app_messages.html), в списке приложений —
- * по файлу-признаку modules/app_messages/app. Настройки — в панели управления (вкладки «Настройки», «Терминалы»,
- * «Камеры (go2rtc)»).
+ * по файлу-признаку modules/app_messages/app. Настройки — в панели управления (вкладки «Настройки», «Терминалы»).
  *
  * Доставка на устройства — через модуль «Терминалы» (messages_terminals.inc.php): с новыми «Терминалами» (TERMINALS_API) —
  * очередь, окно с картинкой и отправителем, «доставлено» по событию TERMINAL_DELIVERED; с прежними — урезанно.
- * Камеры go2rtc (messages_go2rtc.inc.php) — временно здесь, переедут в отдельный модуль.
+ * Камеры — модуль go2rtc (artt652/majordomo-go2rtc, messages_cameras.inc.php); нет модуля — нет чата «Камеры».
  */
 
 include_once(DIR_MODULES . 'app_messages/messages_terminals.inc.php');
 include_once(DIR_MODULES . 'app_messages/messages_send.inc.php');
 include_once(DIR_MODULES . 'app_messages/messages_auth.inc.php');
-include_once(DIR_MODULES . 'app_messages/messages_go2rtc.inc.php');
+include_once(DIR_MODULES . 'app_messages/messages_cameras.inc.php');
 
 // Прежнее имя функции отправки для сценариев (была в модуле «Терминалы»)
 if (!function_exists('terminalsSend')) {
@@ -73,51 +72,11 @@ class app_messages extends module
         };
         // вкладка, которую открыть после сохранения (у каждой вкладки своя форма)
         $out['TAB'] = (gr('tab') == 'terminals') ? 'tab_terminals' : '';
-        if (gr('go2rtc_save') || gr('access_save')) {
-            $out['TAB'] = 'tab_cameras';
-        }
         if (gr('ws_save')) {
             $this->config['MESSAGES_WS_EXTERNAL'] = messagesWsUrl(gr('ws_external'));
             $this->config['MESSAGES_HISTORY_DAYS'] = (string)max(0, min(3650, (int)gr('history_days')));
             $this->saveConfig();
             $out['SAVED'] = 1;
-        }
-        if (gr('go2rtc_save')) {
-            foreach (array('GO2RTC_URL', 'GO2RTC_USER', 'GO2RTC_PASSWORD', 'GO2RTC_DEVICE_URL', 'GO2RTC_RTSP_USER', 'GO2RTC_RTSP_PASSWORD') as $key) {
-                $this->config[$key] = trim((string)gr(strtolower($key)));
-            }
-            foreach (array('GO2RTC_URL', 'GO2RTC_DEVICE_URL') as $key) {
-                if ($this->config[$key] != '' && !preg_match('#^https?://#i', $this->config[$key])) {
-                    $this->config[$key] = 'http://' . $this->config[$key];
-                }
-            }
-            $this->config['GO2RTC_RTSP_PORT'] = gr('go2rtc_rtsp_port', 'int') ? (string)gr('go2rtc_rtsp_port', 'int') : '';
-            $this->config['GO2RTC_WEBTORRENT'] = gr('go2rtc_webtorrent', 'int') ? '1' : '0';
-            $this->config['GO2RTC_WT_MINUTES'] = gr('go2rtc_wt_minutes', 'int') ? (string)max(1, min(1440, gr('go2rtc_wt_minutes', 'int'))) : '';
-            $this->config['GO2RTC_WAIT'] = gr('go2rtc_wait', 'int') ? (string)max(2, min(25, gr('go2rtc_wait', 'int'))) : '';
-            $this->saveConfig();
-            $out['GO2RTC_SAVED'] = 1;
-        }
-        // права на камеры: камера => все / терминалы / пользователи (без записи — только администратору)
-        if (gr('access_save')) {
-            $posted = gr('access');
-            $posted = is_array($posted) ? $posted : array();
-            $access = array();
-            foreach (messagesGo2rtcStreams() as $name) {
-                $key = md5($name);
-                $rule = isset($posted[$key]) && is_array($posted[$key]) ? $posted[$key] : array();
-                $item = array(
-                    'all' => !empty($rule['all']) ? 1 : 0,
-                    'terminals' => array_values(array_filter(isset($rule['terminals']) ? (array)$rule['terminals'] : array(), 'is_string')),
-                    'users' => array_values(array_unique(array_map('intval', isset($rule['users']) ? (array)$rule['users'] : array()))),
-                );
-                if ($item['all'] || count($item['terminals']) || count($item['users'])) {
-                    $access[$name] = $item;
-                }
-            }
-            messagesCameraAccessSave($access);
-            $this->getConfig();
-            $out['ACCESS_SAVED'] = 1;
         }
         $user_id = gr('user_key_create', 'int');
         if ($user_id && SQLSelectOne("SELECT ID FROM users WHERE ID=" . (int)$user_id)) {
@@ -155,36 +114,9 @@ class app_messages extends module
             );
         }
 
-        // камеры go2rtc: настройки и состояние (сколько потоков видно)
-        foreach (array('GO2RTC_URL', 'GO2RTC_USER', 'GO2RTC_PASSWORD', 'GO2RTC_DEVICE_URL', 'GO2RTC_RTSP_PORT', 'GO2RTC_RTSP_USER',
-            'GO2RTC_RTSP_PASSWORD', 'GO2RTC_WT_MINUTES', 'GO2RTC_WAIT') as $key) {
-            $out[$key] = $h(isset($this->config[$key]) ? $this->config[$key] : '');
-        }
-        $out['GO2RTC_WEBTORRENT'] = !empty($this->config['GO2RTC_WEBTORRENT']) ? 1 : 0;
-        $out['CAMERAS'] = array();
-        if (messagesGo2rtcEnabled()) {
-            $streams = messagesGo2rtcStreams();
-            $out['GO2RTC_STATUS'] = $h(sprintf(messagesLang('MESSAGES_GO2RTC_STREAMS'), count($streams)));
-            $out['GO2RTC_DEVICE_AUTO'] = $h(messagesGo2rtcDeviceBase());
-            $access = messagesCameraAccess();
-            $all_terms = SQLSelect("SELECT NAME, TITLE FROM terminals ORDER BY TITLE");
-            $all_users = SQLSelect("SELECT ID, NAME, USERNAME FROM users ORDER BY NAME");
-            foreach ($streams as $name) {
-                $rule = isset($access[$name]) ? $access[$name] : array();
-                $camera = array('NAME' => $h($name), 'KEY' => md5($name), 'ALL' => !empty($rule['all']) ? 1 : 0,
-                    'TERMINALS' => array(), 'USERS' => array());
-                foreach ($all_terms as $t) {
-                    $camera['TERMINALS'][] = array('KEY' => $camera['KEY'], 'NAME' => $h($t['NAME']), 'TITLE' => $h($t['TITLE']),
-                        'ON' => (!empty($rule['terminals']) && in_array($t['NAME'], (array)$rule['terminals'], true)) ? 1 : 0);
-                }
-                foreach ($all_users as $u) {
-                    $camera['USERS'][] = array('KEY' => $camera['KEY'], 'ID' => (int)$u['ID'], 'TITLE' => $h($u['NAME'] != '' ? $u['NAME'] : $u['USERNAME']),
-                        'ON' => (!empty($rule['users']) && in_array((int)$u['ID'], array_map('intval', (array)$rule['users']), true)) ? 1 : 0);
-                }
-                $out['CAMERAS'][] = $camera;
-            }
-        }
-        $out['HAS_CAMERAS'] = count($out['CAMERAS']) ? 1 : 0;
+        // камеры — модуль go2rtc: есть ли он (ссылка на его настройки)
+        $out['GO2RTC_MODULE'] = is_file(DIR_MODULES . 'go2rtc/go2rtc.class.php') ? 1 : 0;
+        $out['GO2RTC_ENABLED'] = messagesGo2rtcEnabled() ? 1 : 0;
 
         // ключ каждому пользователю (создаётся при первом показе)
         $out['USERS'] = array();
@@ -281,9 +213,7 @@ class app_messages extends module
                 SQLExec("DELETE FROM messages_tokens WHERE TERMINAL_ID=" . (int)$details['terminal_id']);
             }
         } elseif ($event == 'MINUTELY') {
-            // ссылки внешнего просмотра камер (WebTorrent), срок которых вышел
-            messagesGo2rtcSharesCleanup();
-            // переписка: чистка раз в сутки
+            // переписка: чистка раз в сутки (ссылки камер чистит модуль go2rtc)
             $this->getConfig();
             if (!isset($this->config['CLEANUP_DAY']) || $this->config['CLEANUP_DAY'] != date('Y-m-d')) {
                 $this->config['CLEANUP_DAY'] = date('Y-m-d');
@@ -412,7 +342,8 @@ EOD;
         }
     }
 
-    // Настройки «Сообщений» и камер из конфигурации модуля terminals — то, чего ещё нет в своей (один раз)
+    // Настройки «Сообщений» из конфигурации модуля terminals — то, чего ещё нет в своей (один раз).
+    // Настройки камер переносит модуль go2rtc
     function migrateSettings()
     {
         $this->getConfig();
@@ -422,7 +353,7 @@ EOD;
             $old = is_array($old) ? $old : array();
             $moved = array();
             foreach ($old as $key => $value) {
-                if (preg_match('/^(MESSAGES_|GO2RTC_|CAMERA_ACCESS$)/', (string)$key) && !isset($this->config[$key])) {
+                if (preg_match('/^MESSAGES_/', (string)$key) && !isset($this->config[$key])) {
                     $this->config[$key] = $value;
                     $moved[] = $key;
                 }

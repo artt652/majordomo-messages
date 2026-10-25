@@ -50,95 +50,6 @@ $max_media = $limit(15 * 1024 * 1024);
 $max_file = $limit(50 * 1024 * 1024);
 $upload_error = '';
 
-// Гостевая ссылка на камеру (временный доступ, messages_go2rtc.inc.php): страница просмотра одной камеры без входа —
-// снимки и WebRTC через сервер, до срока ссылки. Ключи, сессия и правила этой страницы здесь не участвуют
-if (gr('mode') == 'cam_guest') {
-    if (session_id() != '') {
-        session_write_close();
-    }
-    $link = messagesGo2rtcEnabled() ? messagesCamLinkGet((string)gr('id')) : array();
-    $link = (!empty($link['cam']) && $link['kind'] == 'guest' && messagesGo2rtcHas($link['cam'])) ? $link : array();
-    header('Referrer-Policy: no-referrer');
-    header('X-Robots-Tag: noindex, nofollow');
-    header('Cache-Control: no-store');
-    if (gr('frame')) {
-        $jpeg = !empty($link['cam']) ? messagesGo2rtcFrame($link['cam'], min(1280, max(0, gr('w', 'int')))) : '';
-        if ($jpeg == '') {
-            header('HTTP/1.1 404 Not Found');
-            exit;
-        }
-        header('Content-Type: image/jpeg');
-        echo $jpeg;
-        exit;
-    }
-    if (gr('whep')) {
-        if (empty($link['cam']) || $_SERVER['REQUEST_METHOD'] != 'POST') {
-            header('HTTP/1.1 404 Not Found');
-            exit;
-        }
-        messagesGo2rtcWhepProxy($link['cam']);
-    }
-    if (gr('check')) {
-        header('Content-Type: application/json; charset=utf-8');
-        echo json_encode(array('ok' => !empty($link['cam']) ? 1 : 0));
-        exit;
-    }
-    $h = function ($text) {
-        return htmlspecialchars((string)$text, ENT_QUOTES, 'UTF-8');
-    };
-    header('Content-Type: text/html; charset=utf-8');
-    if (empty($link['cam'])) {
-        header('HTTP/1.1 404 Not Found');
-        echo '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
-            . '<title>' . $h(messagesLang('MESSAGES_CAM_LINK_GONE')) . '</title></head>'
-            . '<body style="margin:0;background:#000;color:#ccc;font:16px sans-serif;display:flex;align-items:center;justify-content:center;height:100vh">'
-            . $h(messagesLang('MESSAGES_CAM_LINK_GONE')) . '</body></html>';
-        exit;
-    }
-    DebMes('go2rtc: guest link ' . substr((string)gr('id'), 0, 6) . '… to ' . $link['cam'] . ' opened from '
-        . (isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : '-'), 'app_messages');
-    $go2rtc = messagesGo2rtcConfig();
-    $self = strtok((string)$_SERVER['REQUEST_URI'], '?') . '?ajax=1&mode=cam_guest&id=' . rawurlencode(strtolower((string)gr('id')));
-    $texts = array('live' => messagesLang('MESSAGES_CAM_LIVE'), 'snapshot' => messagesLang('MESSAGES_CAM_SNAPSHOT'),
-        'offline' => messagesLang('MESSAGES_CAM_OFFLINE'), 'gone' => messagesLang('MESSAGES_CAM_LINK_GONE'));
-    $flags = JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE;
-    echo '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
-        . '<meta name="referrer" content="no-referrer"><title>' . $h($link['cam']) . '</title><style>'
-        . 'html,body{margin:0;height:100%;background:#000;color:#eee;font:14px -apple-system,Segoe UI,Roboto,sans-serif}'
-        . 'body{display:flex;flex-direction:column}header{padding:10px 16px;display:flex;gap:12px;align-items:baseline;flex-wrap:wrap}'
-        . 'header b{font-size:16px}header span{color:#9aa}main{flex:1;min-height:0;position:relative;display:flex;align-items:center;justify-content:center}'
-        . 'main img,main video{width:100%;height:100%;object-fit:contain}main.off::after{content:attr(data-off);position:absolute;color:#ccc}'
-        . 'main.off img{opacity:.35}</style></head><body><header><b>📹 ' . $h($link['cam']) . '</b><span id="state"></span>'
-        . '<span>' . $h(str_replace('%s', date('H:i', $link['expires']) . ((date('Y-m-d', $link['expires']) != date('Y-m-d')) ? ' ' . date('d.m', $link['expires']) : ''),
-            messagesLang('MESSAGES_CAM_LINK_READY'))) . '</span></header>'
-        . '<main id="view" data-off="' . $h($texts['offline']) . '"><img id="shot" alt=""><video id="live" autoplay muted playsinline controls style="display:none"></video></main>'
-        . '<script>(function(){var self=' . json_encode($self, $flags) . ',t=' . json_encode($texts, $flags) . ',wait=' . (int)$go2rtc['wait'] . ',expires=' . (int)$link['expires'] . ';'
-        . 'var view=document.getElementById("view"),shot=document.getElementById("shot"),video=document.getElementById("live"),state=document.getElementById("state");'
-        . 'var loading=false,failSince=0,timer=null,live=false;state.textContent=t.snapshot;'
-        // снимок: следующий — когда загрузился прошлый; «нет связи» — после 20 с неудач
-        . 'function frame(){if(loading||live)return;loading=true;var next=new Image();'
-        . 'next.onload=function(){loading=false;failSince=0;view.classList.remove("off");next.id="shot";next.alt="";shot.parentNode.replaceChild(next,shot);shot=next;};'
-        . 'next.onerror=function(){loading=false;if(!failSince)failSince=Date.now();if(Date.now()-failSince>=20000)view.classList.add("off");};'
-        . 'next.src=self+"&frame=1&w=1280&t="+Date.now();}'
-        . 'function gone(){clearInterval(timer);if(window.pc)try{pc.close();}catch(e){}document.body.innerHTML="";var d=document.createElement("main");d.textContent=t.gone;document.body.appendChild(d);}'
-        . 'frame();timer=setInterval(function(){if(Date.now()>expires*1000){gone();return;}frame();},2000);'
-        . 'setInterval(function(){fetch(self+"&check=1",{cache:"no-store"}).then(function(r){return r.json();}).then(function(j){if(!j.ok)gone();}).catch(function(){});},30000);'
-        // WebRTC (WHEP через сервер): вышло — видео вместо снимков; нет за ожидание камеры + 4 с — остаются снимки
-        . 'if(window.RTCPeerConnection){var pc=window.pc=new RTCPeerConnection({iceServers:[]});pc.addTransceiver("video",{direction:"recvonly"});pc.addTransceiver("audio",{direction:"recvonly"});'
-        . 'pc.ontrack=function(e){if(!video.srcObject)video.srcObject=e.streams[0]||new MediaStream([e.track]);};'
-        . 'video.addEventListener("playing",function(){live=true;shot.style.display="none";video.style.display="";view.classList.remove("off");state.textContent=t.live;});'
-        . 'pc.createOffer().then(function(o){return pc.setLocalDescription(o);}).then(function(){return new Promise(function(ok){if(pc.iceGatheringState=="complete"){ok();return;}'
-        . 'var to=setTimeout(ok,2000),first=null;var done=function(){clearTimeout(to);clearTimeout(first);ok();};'
-        . 'pc.addEventListener("icecandidate",function(e){if(e.candidate&&!first)first=setTimeout(done,300);});'
-        . 'pc.addEventListener("icegatheringstatechange",function(){if(pc.iceGatheringState=="complete")done();});});})'
-        . '.then(function(){return fetch(self+"&whep=1",{method:"POST",body:pc.localDescription.sdp,headers:{"Content-Type":"application/sdp"}});})'
-        . '.then(function(r){if(!r.ok)throw new Error("whep");return r.text();}).then(function(sdp){return pc.setRemoteDescription({type:"answer",sdp:sdp});})'
-        . '.catch(function(){try{pc.close();}catch(e){}});'
-        . 'setTimeout(function(){if(video.readyState<2){try{pc.close();}catch(e){}}},(wait+4)*1000);}'
-        . '})();</script></body></html>';
-    exit;
-}
-
 // Кто открыл страницу: терминал этого устройства и (или) пользователь MajorDoMo.
 // Терминал:
 // 1) Ключ (messages_auth.inc.php): ?token=… (ссылка из карточки терминала, API) или cookie tmmsg_key —
@@ -555,12 +466,12 @@ foreach ($shout_rooms as $room) {
         'readonly' => $user_id ? 0 : 1, 'text_only' => 1,
         'created_by' => (string)$room['USER_NAME'], 'created' => $created);
 }
-// «Камеры» (go2rtc, messages_go2rtc.inc.php): потоки, видимые этому терминалу или пользователю (права —
+// «Камеры» (go2rtc, модуль go2rtc): потоки, видимые этому терминалу или пользователю (права —
 // в настройках «Сообщений»; администратор видит все). Чат — пульт: сетка снимков, просмотр, показ на терминалах,
 // снимок в чат, ссылка для внешнего просмотра (WebTorrent)
 $cam_admin = $as_admin || (!empty($me_user['IS_ADMIN']));
 $my_cameras = ($can_write && messagesGo2rtcEnabled()) ? messagesCamerasFor($me_name, $user_id, $cam_admin) : array();
-// временный доступ (ссылка «участникам чата», messages_go2rtc.inc.php): только смотреть — снимки и видео,
+// временный доступ (ссылка «участникам чата», модуль go2rtc): только смотреть — снимки и видео,
 // без «Показать на…», «Снимок в чат» и ссылок; в чате «Камеры» — с отметкой «до …»
 $link_cameras = ($can_write && messagesGo2rtcEnabled()) ? messagesCamLinkCameras($me_keys) : array();
 foreach ($link_cameras as $name => $until) {
@@ -891,15 +802,13 @@ if (gr('mode') == 'cam_frame') {
     echo $jpeg;
     exit;
 }
-// WebRTC: согласование (WHEP — предложение SDP, ответ go2rtc) через сервер — для браузера и устройств (PiPup,
-// ссылка с ключом терминала). Само видео идёт с go2rtc напрямую; пароль API go2rtc остаётся на сервере
+// WebRTC для этой страницы: согласование (WHEP — предложение SDP, ответ go2rtc) через сервер, модуль go2rtc.
+// Само видео идёт с go2rtc напрямую; пароль API go2rtc остаётся на сервере. Устройства (PiPup) смотрят по подписанной
+// ссылке модуля go2rtc (go2rtcUrl), не через эту страницу
 if (gr('mode') == 'whep') {
     $name = (string)gr('src');
     $finish_session();
-    // камера разрешена этому терминалу или пользователю — или показана ему (подписанная ссылка, messagesGo2rtcUrl)
-    $signed = $by_key && !empty($me['ID']) && (int)gr('exp') > time()
-        && hash_equals(messagesGo2rtcSign($name, $me['ID'], (int)gr('exp')), (string)gr('sig'));
-    if ((!in_array($name, $view_cameras, true) && !($signed && messagesGo2rtcHas($name))) || $_SERVER['REQUEST_METHOD'] != 'POST') {
+    if (!in_array($name, $view_cameras, true) || $_SERVER['REQUEST_METHOD'] != 'POST') {
         header('HTTP/1.1 404 Not Found');
         exit;
     }
@@ -995,12 +904,13 @@ if (gr('mode') == 'cam_link') {
     $who = $user_id ? $me_user_key : $me_name;
     $who_title = ($user_id && !empty($me_user['NAME'])) ? $me_user['NAME'] : (!empty($me['ID']) ? $me['TITLE'] : $me_name);
     $id = messagesCamLinkCreate($name, $kind, gr('minutes', 'int'), $members, $who, $who_title);
+    if ($id == '') {
+        $json_out(array('ok' => 0, 'error' => 'no_access'));
+    }
     $link = messagesCamLinkGet($id);
     $until = date('H:i', $link['expires']) . ((date('Y-m-d', $link['expires']) != date('Y-m-d')) ? ' ' . date('d.m', $link['expires']) : '');
-    $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] != 'off')
-        || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && strtolower($_SERVER['HTTP_X_FORWARDED_PROTO']) == 'https');
-    $url = ($kind == 'guest') ? ($https ? 'https' : 'http') . '://' . $_SERVER['HTTP_HOST'] . strtok((string)$_SERVER['REQUEST_URI'], '?')
-        . '?ajax=1&mode=cam_guest&id=' . $id : '';
+    // гостевая страница — модуль go2rtc (api.php/module/go2rtc/guest/<id>)
+    $url = ($kind == 'guest') ? messagesCamGuestUrl($id) : '';
     $sent = 0;
     $result = array('ok' => 1, 'id' => $id, 'url' => $url, 'expires' => $link['expires'], 'chat' => !empty($chat['key']) ? $chat['key'] : '');
     if (!empty($chat['key'])) {
