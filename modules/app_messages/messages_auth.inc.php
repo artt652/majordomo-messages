@@ -75,16 +75,14 @@ function messagesTokenRequired($terminal_id)
     return empty($row['ID']) || !empty($row['REQUIRED']);
 }
 
-// Ключи всем терминалам, у которых их нет (установка и обновление модуля)
-// Первая установка (ключей ещё нет ни у кого): у прежних терминалов «Только по ключу» выключено, как было;
-// при обновлении терминалы без ключа — появившиеся после установки — получают его включённым
+// Ключи всем терминалам, у которых их нет (установка и обновление модуля): «Только по ключу» включено у всех —
+// без ключа страница терминалом не откроется (из панели управления — можно). Перенесённые из прежних «Терминалов»
+// ключи сохраняют свою настройку
 function messagesTokenEnsureAll()
 {
-    $any = SQLSelectOne("SELECT ID FROM messages_tokens LIMIT 1");
-    $required = !empty($any['ID']) ? 1 : 0;
     $list = SQLSelect("SELECT t.ID FROM terminals t LEFT JOIN messages_tokens k ON k.TERMINAL_ID=t.ID WHERE k.TOKEN IS NULL OR k.TOKEN=''");
     foreach ((array)$list as $rec) {
-        messagesTokenCreate($rec['ID'], $required);
+        messagesTokenCreate($rec['ID'], 1);
     }
 }
 
