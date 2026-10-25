@@ -1,0 +1,10 @@
+<!--#
+ @version 0.1 (auto-set)
+#-->
+[#if ACTION="admin"#]
+<!-- Control Panel -->
+ [#inc action_admin.html#]
+[#else ACTION#]
+<!-- Frontend: страница «Сообщения» -->
+ [#inc action_usual.html#]
+[#endif ACTION#]

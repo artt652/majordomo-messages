@@ -1,0 +1,139 @@
+<!-- Терминал в настройках «Сообщений»: ключ доступа к странице (ссылка, QR, «Только по ключу»), сообщение на терминал,
+     экран устройства (если дополнение умеет). Было вкладками в карточке терминала -->
+<ul class="breadcrumb">
+	<li><a href="?tab=terminals"><#LANG_MESSAGES_TITLE#></a></li>
+	<li class="active">[#TERMINAL_TITLE#]</li>
+</ul>
+
+<h4><#LANG_MESSAGES_TOKEN_TITLE#></h4>
+<form action="?" method="post" class="form-horizontal" name="frmToken">
+[#if TOKEN_RECREATED="1"#]<div class="alert alert-success"><#LANG_MESSAGES_TOKEN_RECREATED#></div>[#endif TOKEN_RECREATED#]
+[#if TOKEN_SAVED="1"#]<div class="alert alert-success"><#LANG_DATA_SAVED#></div>[#endif TOKEN_SAVED#]
+<div class="form-group">
+	<div class="col-lg-offset-2 col-lg-5">
+		<p class="help-block"><#LANG_MESSAGES_TOKEN_HELP#></p>
+		<div class="input-group">
+			<input type="text" class="form-control" id="token_link" readonly onclick="this.select()">
+			<span class="input-group-btn"><button class="btn btn-default" type="button" onclick="tokenCopy()"><#LANG_MESSAGES_TOKEN_COPY#></button></span>
+		</div>
+	</div>
+</div>
+<div class="form-group">
+	<div class="col-lg-offset-2 col-lg-5"><div class="thumbnail" id="token_qr" style="display:inline-block;margin:0"></div></div>
+</div>
+<div class="form-group">
+	<div class="col-lg-offset-2 col-lg-5">
+		<p class="help-block"><#LANG_MESSAGES_TOKEN_API#></p>
+		<pre id="token_api" style="white-space:pre-wrap;margin:0"></pre>
+	</div>
+</div>
+<div class="form-group">
+	<label class="col-lg-4 control-label"><#LANG_MESSAGES_TOKEN#>:</label>
+	<div class="col-lg-5"><p class="form-control-static">
+		<#LANG_MESSAGES_TOKEN_CREATED#> [#TOKEN_CREATED#][#if TOKEN_LAST_USED!=""#], <#LANG_MESSAGES_TOKEN_LAST_USED#> [#TOKEN_LAST_USED#][#endif TOKEN_LAST_USED#]
+	</p></div>
+</div>
+<div class="form-group">
+	<div class="col-lg-offset-2 col-lg-5">
+		<div class="checkbox"><label><input type="checkbox" name="token_required" value="1"[#if TOKEN_REQUIRED="1"#] checked[#endif#] onchange="this.form.terminal_mode.value='token_required';this.form.submit();"> <#LANG_MESSAGES_TOKEN_REQUIRED#></label></div>
+		<p class="help-block"><#LANG_MESSAGES_TOKEN_REQUIRED_HELP#></p>
+	</div>
+</div>
+<div class="form-group">
+	<div class="col-lg-offset-2 col-lg-5">
+		<button class="btn btn-default" type="submit" onclick="this.form.terminal_mode.value='token_create';return confirm('<#LANG_MESSAGES_TOKEN_RECREATE_CONFIRM#>');"><#LANG_MESSAGES_TOKEN_RECREATE#></button>
+	</div>
+</div>
+<input type="hidden" name="terminal_id" value="[#TERMINAL_ID#]">
+<input type="hidden" name="terminal_mode" value="">
+</form>
+
+<h4><#LANG_MESSAGES_SEND_TO_THIS#></h4>
+[#if SCREEN_SHOW="1"#]
+<!-- экран устройства (screenState() / screen() дополнения TTS): состояние, включить / выключить -->
+<form action="?" method="post" class="form-horizontal" name="frmScreen">
+[#if SCREEN_FAILED="1"#]<div class="alert alert-danger"><#LANG_MESSAGES_SCREEN_FAILED#></div>[#endif SCREEN_FAILED#]
+<div class="form-group">
+	<label class="col-lg-4 control-label"><#LANG_MESSAGES_SCREEN#>:</label>
+	<div class="col-lg-5">
+		<p class="form-control-static">[#SCREEN_TEXT#]</p>
+		[#if SCREEN_KNOWN="1"#]
+		<button class="btn btn-default" type="submit" onclick="this.form.screen_state.value='on';"><#LANG_MESSAGES_SCREEN_TURN_ON#></button>
+		<button class="btn btn-default" type="submit" onclick="this.form.screen_state.value='off';"[#if SCREEN_CAN_SLEEP!="1"#] disabled[#endif#]><#LANG_MESSAGES_SCREEN_TURN_OFF#></button>
+		[#if SCREEN_CAN_SLEEP!="1"#]<p class="help-block"><#LANG_MESSAGES_SCREEN_NO_SLEEP#> <code>adb shell dpm set-active-admin nl.rogro82.pipup/.AdminReceiver</code></p>[#endif#]
+		[#endif SCREEN_KNOWN#]
+	</div>
+</div>
+<input type="hidden" name="screen_state" value="">
+<input type="hidden" name="terminal_id" value="[#TERMINAL_ID#]">
+<input type="hidden" name="terminal_mode" value="screen">
+</form>
+[#endif SCREEN_SHOW#]
+<form action="?" method="post" class="form-horizontal" name="frmSend">
+[#if SENT="1"#]<div class="alert alert-success"><#LANG_MESSAGES_MESSAGE_SENT#></div>[#endif SENT#]
+[#if SEND_FAILED="1"#]<div class="alert alert-danger"><#LANG_MESSAGES_MESSAGE_NOT_SENT#></div>[#endif SEND_FAILED#]
+<div class="form-group">
+	<label class="col-lg-4 control-label"><#LANG_MESSAGES_TEXT#>:</label>
+	<div class="col-lg-5"><textarea name="send_message" class="form-control" rows="2"></textarea></div>
+</div>
+<div class="form-group">
+	<div class="col-lg-offset-2 col-lg-5">
+		<div class="checkbox"><label><input type="checkbox" name="send_voice" value="1" checked> <#LANG_MESSAGES_VOICE_TEXT#></label></div>
+	</div>
+</div>
+<div class="form-group">
+	<label class="col-lg-4 control-label"><#LANG_MESSAGES_IMAGE#>:</label>
+	<div class="col-lg-5"><input type="text" name="send_image" class="form-control" placeholder="<#LANG_MESSAGES_IMAGE_HINT#>"></div>
+</div>
+<div class="form-group">
+	<label class="col-lg-4 control-label"><#LANG_MESSAGES_SOUND_BEFORE#>:</label>
+	<div class="col-lg-5">
+		<select name="send_sound" class="form-control">
+			<option value=""><#LANG_MESSAGES_NONE#></option>
+			[#begin SEND_SOUNDS#]<option value="[#FILE#]">[#TITLE#]</option>[#end SEND_SOUNDS#]
+		</select>
+	</div>
+</div>
+<div class="form-group">
+	<label class="col-lg-4 control-label"><#LANG_MESSAGES_FROM#>:</label>
+	<div class="col-lg-5">
+		<select name="send_from" class="form-control">
+			<option value=""><#LANG_MESSAGES_NOT_SET#></option>
+			[#begin SEND_TERMINALS#]<option value="[#NAME#]">[#TITLE#]</option>[#end SEND_TERMINALS#]
+		</select>
+	</div>
+</div>
+<div class="form-group">
+	<label class="col-lg-4 control-label"><#LANG_MESSAGES_LEVEL#>:</label>
+	<div class="col-lg-5"><input type="number" name="send_level" class="form-control" placeholder="<#LANG_MESSAGES_LEVEL_HINT#>"></div>
+</div>
+<div class="form-group">
+	<div class="col-lg-offset-2 col-lg-5"><input class="btn btn-default" type="submit" value="<#LANG_MESSAGES_SEND#>"></div>
+</div>
+<input type="hidden" name="terminal_id" value="[#TERMINAL_ID#]">
+<input type="hidden" name="terminal_mode" value="send">
+</form>
+<script src="<#ROOTHTML#>templates/app_messages/js/qrcode.js"></script>
+<script type="text/javascript">
+	(function () {
+		var token = '[#TOKEN#]';
+		var page = location.protocol + '//' + location.host + '[#TOKEN_PAGE#]';
+		var link = page + '?token=' + token;
+		document.getElementById('token_link').value = link;
+		document.getElementById('token_api').textContent =
+			'curl "' + page + '?token=' + token + '&ajax=1&mode=send_message" --data-urlencode "chat=all" --data-urlencode "message=..."\n'
+			+ 'curl "' + page + '?token=' + token + '&ajax=1&list=1"';
+		if (window.qrcode) {
+			var qr = qrcode(0, 'M');
+			qr.addData(link);
+			qr.make();
+			document.getElementById('token_qr').innerHTML = qr.createSvgTag({cellSize: 4, margin: 2});
+		}
+		window.tokenCopy = function () {
+			var input = document.getElementById('token_link');
+			input.select();
+			try { document.execCommand('copy'); } catch (e) {}
+			if (navigator.clipboard) navigator.clipboard.writeText(input.value).catch(function () {});
+		};
+	})();
+</script>
