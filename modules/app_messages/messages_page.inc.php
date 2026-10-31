@@ -953,7 +953,7 @@ if (gr('mode') == 'cam_share' || gr('mode') == 'cam_unshare') {
     if (gr('mode') == 'cam_unshare') {
         $json_out(array('ok' => messagesGo2rtcUnshare($name) ? 1 : 0));
     }
-    $share = messagesGo2rtcShare($name);
+    $share = messagesGo2rtcShare($name, gr('minutes', 'int'));
     $json_out(!empty($share['url']) ? array('ok' => 1, 'url' => $share['url'], 'expires' => $share['expires']) : array('ok' => 0));
 }
 

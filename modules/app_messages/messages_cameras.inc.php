@@ -19,7 +19,7 @@ function messagesGo2rtcEnabled()
 function messagesGo2rtcConfig()
 {
     return messagesGo2rtcEnabled() ? go2rtcConfig()
-        : array('url' => '', 'user' => '', 'password' => '', 'device_url' => '', 'webtorrent' => false, 'wt_minutes' => 10, 'wait' => 6);
+        : array('url' => '', 'user' => '', 'password' => '', 'device_url' => '', 'webtorrent' => false, 'wait' => 6);
 }
 
 function messagesGo2rtcStreams()
@@ -67,9 +67,9 @@ function messagesGo2rtcWhepProxy($name)
     exit;
 }
 
-function messagesGo2rtcShare($name)
+function messagesGo2rtcShare($name, $minutes = 60)
 {
-    return messagesGo2rtcEnabled() ? go2rtcShare($name) : array();
+    return messagesGo2rtcEnabled() ? go2rtcShare($name, $minutes) : array();
 }
 
 function messagesGo2rtcUnshare($name)

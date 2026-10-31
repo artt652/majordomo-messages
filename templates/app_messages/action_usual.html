@@ -2602,8 +2602,8 @@
 		tmCamNote(tmText.sending);
 		var fail = function (res) { tmCamNote(res && res.error == 'no_access' ? tmText.camNoAccess : tmText.notSent); };
 		if (cam.kind == 'wt') {
-			// WebTorrent: ссылка go2rtc на поток (одна на всех), срок — из настроек
-			tmGroupPost({mode: 'cam_share', name: cam.name}, function (res) {
+			// WebTorrent: ссылка go2rtc на поток (одна на всех), срок — выбранный в окне
+			tmGroupPost({mode: 'cam_share', name: cam.name, minutes: minutes}, function (res) {
 				if (!res.ok || !res.url) { tmCamNote(tmText.camFailed); return; }
 				var share = {name: cam.name, kind: 'wt', url: res.url, expires: res.expires};
 				if (!key) { tmCopy(res.url); tmCamLinkNote(share, tmText.camCopied); tmRefresh(); return; }
